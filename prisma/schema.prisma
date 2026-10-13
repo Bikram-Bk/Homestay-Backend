@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TRAVELER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  CONFIRMED
+  CANCELLED
+}
+
+enum MealOption {
+  BREAKFAST
+  BREAKFAST_DINNER
+  ALL_MEALS
+}
+
+enum RoomType {
+  PRIVATE
+  SHARED
+  FAMILY
+}
+
+// ==================== USER ====================
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String
+  phone         String?
+  role          Role           @default(TRAVELER)
+  resetOtp      String?
+  resetOtpExpires DateTime?
+  refreshTokens RefreshToken[]
+  bookings      Booking[]
+  reviews       Review[]
+  notifications Notification[]
+  sessions      ChatSession[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ==================== HOMESTAY ====================
+model Homestay {
+  id            String     @id @default(cuid())
+  name          String     // e.g., "Gurung Didi Homestay"
+  slug          String     @unique
+  description   String?    // Brief description of the homestay experience
+
+  // Host info (Admin-managed, host login chhaina)
+  hostName      String     // e.g., "Gurung Didi"
+  hostBio       String?    // e.g., "Hosting travelers with love for 10 years"
+  hostPhoto     String?    // Photo URL
+
+  village       String     // e.g., "Ghandruk"
+  region        String     // e.g., "Kaski, Annapurna"
+  roomType      RoomType   @default(PRIVATE)
+  capacity      Int        @default(2)
+  mealsIncluded MealOption @default(BREAKFAST)
+  facilities    String[]   // ["Hot Water", "WiFi", "Organic Farm Food", "Mountain View"]
+  pricePerNight Int        // Flat rate in NPR
+  images        String[]   // Photo URLs
+
+  bookings      Booking[]
+  reviews       Review[]
+  embedding     HomestayEmbedding?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([village])
+  @@map("homestays")
+}
+
+// ==================== BOOKING ====================
+model Booking {
+  id          String        @id @default(cuid())
+  homestayId  String
+  homestay    Homestay      @relation(fields: [homestayId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  checkIn     DateTime
+  checkOut    DateTime
+  guests      Int           @default(1)
+  totalAmount Int           // Total calculated in NPR
+  status      BookingStatus @default(PENDING)
+  paymentRef  String?       // esewa pidx / transaction reference
+  cancelNote  String?       // Optional note on cancellation
+
+  review      Review?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([homestayId, checkIn, checkOut])
+  @@index([userId])
+  @@map("bookings")
+}
+
+// ==================== REVIEW ====================
+model Review {
+  id         String   @id @default(cuid())
+  homestayId String
+  homestay   Homestay @relation(fields: [homestayId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingId  String   @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  rating     Int      // 1 to 5 stars
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([homestayId])
+  @@map("reviews")
+}
+
+// ==================== NOTIFICATION ====================
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// ==================== CHAT (RAG HISTORY) ====================
+model ChatSession {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String      // "user" or "assistant"
+  content   String
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+// ==================== HOMESTAY EMBEDDINGS (RAG) ====================
+model HomestayEmbedding {
+  id         String   @id @default(cuid())
+  homestayId String   @unique
+  homestay   Homestay @relation(fields: [homestayId], references: [id], onDelete: Cascade)
+  vector     Float[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("homestay_embeddings")
+}
+
+// ==================== VILLAGE GUIDE (RAG KNOWLEDGE SOURCE) ====================
+model VillageGuide {
+  id        String   @id @default(cuid())
+  village   String   @unique
+  region    String
+  content   String   // Rich cultural notes, local customs, travel tips
+  tags      String[] // ["Annapurna", "Gurung Culture", "Trekking"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("village_guides")
+}
