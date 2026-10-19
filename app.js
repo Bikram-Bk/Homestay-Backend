@@ -22,11 +22,27 @@ import "./config/queue.js";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
+
+const allowedOrigins = Array.from(
+  new Set([
+    env.FRONTEND_URL?.replace(/\/+$/, ""),
+    env.ADMIN_URL?.replace(/\/+$/, ""),
+    "http://localhost:3000",
+    "http://localhost:3001",
+  ].filter(Boolean))
+);
 
 app.use(
   cors({
-    origin: [env.FRONTEND_URL, env.ADMIN_URL],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin.replace(/\/+$/, ""))) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );

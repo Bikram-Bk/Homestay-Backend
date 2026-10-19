@@ -26,7 +26,7 @@ export async function initiateEsewaPayment(bookingId, userId) {
     throw err;
   }
 
-  const total_amount = String(booking.totalAmount);
+  const total_amount = Number(booking.totalAmount).toFixed(2);
   const transaction_uuid = `${booking.id}-${Date.now()}`;
   const product_code = env.ESEWA_PRODUCT_CODE;
 

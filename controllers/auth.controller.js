@@ -8,8 +8,8 @@ const REFRESH_COOKIE_NAME = "hn_refresh_token";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "lax",
+  secure: true,
+  sameSite: "none",
   path: "/api/auth",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -67,14 +67,19 @@ export const refresh = asyncHandler(async (req, res) => {
   );
 });
 
+const clearCookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  path: "/api/auth",
+};
+
 export const logout = asyncHandler(async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE_NAME];
 
   await authService.logout(token);
 
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    path: "/api/auth",
-  });
+  res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
 
   return ok(res, null, "Logged out");
 });
@@ -82,9 +87,7 @@ export const logout = asyncHandler(async (req, res) => {
 export const logoutAll = asyncHandler(async (req, res) => {
   await authService.logoutAll(req.user.id);
 
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    path: "/api/auth",
-  });
+  res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
 
   return ok(res, null, "Logged out from all devices");
 });
