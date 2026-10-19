@@ -10,7 +10,8 @@ export const initiateEsewa = asyncHandler(async (req, res) => {
     err.status = 400;
     throw err;
   }
-  const payload = await paymentService.initiateEsewaPayment(bookingId, req.user.id);
+  const clientOrigin = req.headers.origin || env.FRONTEND_URL;
+  const payload = await paymentService.initiateEsewaPayment(bookingId, req.user.id, clientOrigin);
   return ok(res, payload, "eSewa payment initiated");
 });
 

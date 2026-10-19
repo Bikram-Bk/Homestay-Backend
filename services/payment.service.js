@@ -5,7 +5,7 @@ import { cancelBookingExpiry, enqueueEmail } from "../config/queue.js";
 import { createNotification } from "./notification.service.js";
 
 
-export async function initiateEsewaPayment(bookingId, userId) {
+export async function initiateEsewaPayment(bookingId, userId, clientOrigin) {
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
 
   if (!booking) {
@@ -35,6 +35,8 @@ export async function initiateEsewaPayment(bookingId, userId) {
     env.ESEWA_SECRET_KEY
   );
 
+  const baseUrl = clientOrigin ? clientOrigin.replace(/\/+$/, "") : env.FRONTEND_URL;
+
   return {
     gatewayUrl: env.ESEWA_GATEWAY_URL,
     amount: total_amount,
@@ -44,8 +46,8 @@ export async function initiateEsewaPayment(bookingId, userId) {
     product_code,
     product_service_charge: "0",
     product_delivery_charge: "0",
-    success_url: `${env.FRONTEND_URL}/payment/esewa/success`,
-    failure_url: `${env.FRONTEND_URL}/payment/esewa/failure`,
+    success_url: `${baseUrl}/payment/esewa/success`,
+    failure_url: `${baseUrl}/payment/esewa/failure`,
     signed_field_names: "total_amount,transaction_uuid,product_code",
     signature,
   };
@@ -86,7 +88,8 @@ export async function verifyEsewaPayment(encodedData, userId, userRole) {
   }
 
   // Confirm with eSewa Status Check API
-  const statusUrl = `${env.ESEWA_STATUS_CHECK_URL}?product_code=${env.ESEWA_PRODUCT_CODE}&total_amount=${total_amount}&transaction_uuid=${transaction_uuid}`;
+  const cleanTotalAmount = String(total_amount).replace(/,/g, "");
+  const statusUrl = `${env.ESEWA_STATUS_CHECK_URL}?product_code=${env.ESEWA_PRODUCT_CODE}&total_amount=${cleanTotalAmount}&transaction_uuid=${transaction_uuid}`;
 
   let esewaStatus = status;
   try {
