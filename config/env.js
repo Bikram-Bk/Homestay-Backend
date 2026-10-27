@@ -28,9 +28,9 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
   ADMIN_URL: process.env.ADMIN_URL || "http://localhost:3001",
 
-  // Resend API (replaces Nodemailer/Gmail SMTP — Render blocks SMTP ports)
-  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "HomestayNepal <onboarding@resend.dev>",
+  // Brevo (Sendinblue) API — HTTP-based, works on Render free tier
+  BREVO_API_KEY: process.env.BREVO_API_KEY || "",
+  EMAIL_FROM_ADDRESS: process.env.EMAIL_FROM_ADDRESS || "bikrambk2244@gmail.com",
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || "bikrambk2244@gmail.com",
 
   // eSewa ePay v2

@@ -1,33 +1,39 @@
-import { Resend } from "resend";
+import * as Brevo from "@getbrevo/brevo";
 import env from "../config/env.js";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+let transactionalApi = null;
 
-if (resend) {
-  console.log(`[email] Resend initialized. Emails will be sent via Resend API.`);
+if (env.BREVO_API_KEY) {
+  const apiInstance = new Brevo.TransactionalEmailsApi();
+  apiInstance.setApiKey(
+    Brevo.TransactionalEmailsApiApiKeys.apiKey,
+    env.BREVO_API_KEY
+  );
+  transactionalApi = apiInstance;
+  console.log(`[email] Brevo Transactional API initialized.`);
 } else {
-  console.warn("[email] RESEND_API_KEY not configured. Emails are logged to terminal only.");
+  console.warn("[email] BREVO_API_KEY not configured. Emails are logged to terminal only.");
 }
 
 /**
- * Internal helper — sends via Resend API or logs to terminal if not configured
+ * Internal helper — sends via Brevo API or logs to terminal if not configured
  */
 async function sendEmail({ to, subject, html, logLabel }) {
   console.log(logLabel);
 
-  if (!resend) return true;
+  if (!transactionalApi) return true;
 
-  const { data, error } = await resend.emails.send({
-    from: env.EMAIL_FROM,
-    to,
-    subject,
-    html,
-  });
+  try {
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html;
+    sendSmtpEmail.sender = { name: "HomestayNepal", email: env.EMAIL_FROM_ADDRESS };
+    sendSmtpEmail.to = [{ email: to }];
 
-  if (error) {
-    console.warn(`[email] Resend error sending "${subject}" to ${to}:`, error.message ?? error);
-  } else {
-    console.log(`[email] Resend delivered "${subject}" to ${to} (id: ${data?.id})`);
+    const result = await transactionalApi.sendTransacEmail(sendSmtpEmail);
+    console.log(`[email] Brevo delivered "${subject}" to ${to} (messageId: ${result?.body?.messageId ?? "ok"})`);
+  } catch (err) {
+    console.warn(`[email] Brevo error sending "${subject}" to ${to}:`, err?.response?.body ?? err.message);
   }
 
   return true;
@@ -93,9 +99,7 @@ export async function sendPasswordResetOtpEmail(toEmail, userName, otp) {
         If you did not request this password reset, please ignore this email or contact support. Your password will remain unchanged.
       </p>
       <hr style="border: none; border-top: 1px solid #E0CAB0; margin: 24px 0;" />
-      <p style="font-size: 12px; color: #7A5C45; text-align: center;">
-        HomestayNepal Security Team
-      </p>
+      <p style="font-size: 12px; color: #7A5C45; text-align: center;">HomestayNepal Security Team</p>
     </div>
   `;
 
@@ -204,7 +208,7 @@ export async function sendPaymentConfirmedEmail({ toEmail, userName, homestayNam
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E0CAB0; border-radius: 8px; background-color: #FAF6F0; color: #2C1810;">
       <h2 style="color: #2E7D32; margin-bottom: 4px;">Payment Confirmed ✅</h2>
-      <p style="font-size: 15px; line-height: 1.6; color: #6B4226;">Namaste <strong>${userName || "Traveler"}</strong>! Your payment for <strong>${homestayName}</strong> has been successfully received. Your booking is now awaiting admin confirmation.</p>
+      <p style="font-size: 15px; line-height: 1.6; color: #6B4226;">Namaste <strong>${userName || "Traveler"}</strong>! Your payment for <strong>${homestayName}</strong> has been successfully received.</p>
       <div style="background-color: #F0FFF4; border: 1px solid #A5D6A7; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tr><td style="padding: 5px 0; color: #7A5C45;">Homestay</td><td style="padding: 5px 0; font-weight: bold;">${homestayName}${village ? ` — ${village}` : ""}</td></tr>
@@ -248,7 +252,7 @@ export async function sendBookingConfirmedEmail({ toEmail, userName, homestayNam
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E0CAB0; border-radius: 8px; background-color: #FAF6F0; color: #2C1810;">
       <h2 style="color: #C4654A; margin-bottom: 4px;">Your Stay is Confirmed! 🎉</h2>
-      <p style="font-size: 15px; line-height: 1.6; color: #6B4226;">Namaste <strong>${userName || "Traveler"}</strong>! Great news — your booking at <strong>${homestayName}</strong> has been confirmed. Your authentic Nepali experience awaits!</p>
+      <p style="font-size: 15px; line-height: 1.6; color: #6B4226;">Namaste <strong>${userName || "Traveler"}</strong>! Great news — your booking at <strong>${homestayName}</strong> has been confirmed!</p>
       <div style="background-color: #FFF8F2; border: 2px solid #C4654A; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <h3 style="margin: 0 0 12px 0; color: #2C1810; font-size: 16px;">📋 Booking Summary</h3>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
