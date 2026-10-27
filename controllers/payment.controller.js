@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok } from "../utils/response.js";
 import * as paymentService from "../services/payment.service.js";
+import env from "../config/env.js";
 
 // POST /api/payments/esewa/initiate (auth)
 export const initiateEsewa = asyncHandler(async (req, res) => {
