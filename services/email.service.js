@@ -49,7 +49,7 @@ async function sendEmail({ to, subject, html, logLabel }) {
  * Send Welcome Email upon registration
  */
 export async function sendWelcomeEmail(toEmail, userName) {
-  const subject = "Namaste & Welcome to HomestayNepal! 🏔️";
+  const subject = "Namaste & Welcome to HomestayNepal";
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E0CAB0; border-radius: 8px; background-color: #FAF6F0; color: #2C1810;">
       <h2 style="color: #C4654A; margin-bottom: 8px;">Namaste ${userName || "Traveler"},</h2>
