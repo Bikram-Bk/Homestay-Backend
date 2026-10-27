@@ -1,4 +1,4 @@
-# Homestay Nepal — Backend API
+# Homestay Nepal — Backend
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21.2-000000?style=flat&logo=express&logoColor=white)
@@ -72,7 +72,7 @@ The API layer of **HomeStay Nepal**. Exposes REST endpoints for authentication, 
 | Multer                | Uploads      | Multipart file handling                     |
 | Cohere + Gemini       | AI           | Embeddings for semantic search              |
 | Groq SDK              | AI           | Fast chat completion                        |
-| nodemailer            | Email        | Transactional email delivery                |
+| Brevo REST API       | Email        | Transactional email delivery via HTTP fetch |
 | helmet + cors         | Security     | Headers and cross-origin policy             |
 | morgan                | Logging      | HTTP request logging                        |
 | zod                   | Validation   | Runtime type checking                       |
@@ -116,35 +116,32 @@ REFRESH_TOKEN_EXPIRES=7d
 FRONTEND_URL=http://localhost:3000
 ADMIN_URL=http://localhost:3001
 
-# Redis
+# Redis (BullMQ queue & distributed locking)
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_TLS=false
 
-# eSewa ePay
+# eSewa ePay v2 (Sandbox test credentials)
 ESEWA_PRODUCT_CODE=EPAYTEST
-ESEWA_SECRET_KEY=your-secret
+ESEWA_SECRET_KEY=8gBm/:&EnhH.1/q
 ESEWA_GATEWAY_URL=https://rc-epay.esewa.com.np/api/epay/main/v2/form
 ESEWA_STATUS_CHECK_URL=https://rc-epay.esewa.com.np/api/epay/transaction/status/
 
-# Cloudinary
+# Cloudinary (Image uploads)
 CLOUDINARY_CLOUD_NAME=your-cloud
 CLOUDINARY_API_KEY=your-key
 CLOUDINARY_API_SECRET=your-secret
 
-# AI
-GROQ_API_KEY=your-key
-COHERE_API_KEY=your-key
-GEMINI_API_KEY=your-key
+# AI / RAG Chatbot
+GROQ_API_KEY=your-groq-key
+COHERE_API_KEY=your-cohere-key
+GEMINI_API_KEY=your-gemini-key
 
-# Email
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-EMAIL_FROM=HomestayNepal <no-reply@homestaynepal.com>
-ADMIN_EMAIL=admin@homestaynepal.com
+# Transactional Email (Brevo HTTP REST API) 
+BREVO_API_KEY=your-brevo-api-key
+EMAIL_FROM_ADDRESS=mailaddress
+ADMIN_EMAIL=admin-mail
 ```
 
 The app exits immediately on startup if `DATABASE_URL`, `JWT_SECRET`, or `COOKIE_SECRET` is missing — fail fast, not at first request.
@@ -272,7 +269,7 @@ Cohere is the primary embedding provider. If it falls back to Gemini, embedding 
 
 ### Token strategy
 
-Access tokens are short-lived and held in `localStorage`. Refresh tokens are long-lived, httpOnly, cookie-protected, and stored in the database so they can be revoked server-side. This gives you logout-everywhere without exposing the long-lived credential to JavaScript.
+Access tokens are short-lived (15m), kept in client memory (Zustand state), and sent via the `Authorization: Bearer <token>` header. Refresh tokens are long-lived (7d), stored in `httpOnly` signed cookies, and tracked in the database (`RefreshToken` table) for server-side revocation. This enables single-click logout and session invalidation across devices without exposing credentials to XSS or client-side storage.
 
 ### Validation at the edge
 
@@ -347,7 +344,3 @@ Contributions are welcome! Please open an issue or submit a pull request with a 
 ## 📄 License
 
 This project is licensed under the MIT license.
-
----
-
-Made with ❤️ by Bikram Luhar
