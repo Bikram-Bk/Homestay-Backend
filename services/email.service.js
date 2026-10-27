@@ -1,37 +1,36 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import env from "../config/env.js";
 
-let transporter = null;
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
-if (env.SMTP_USER && env.SMTP_PASS) {
-  try {
-    if (env.SMTP_HOST && env.SMTP_HOST !== "smtp.gmail.com") {
-      transporter = nodemailer.createTransport({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_PORT === 465,
-        auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASS,
-        },
-      });
-      console.log(`[email] Custom SMTP transporter initialized (${env.SMTP_HOST}).`);
-    } else {
-      // Default to Gmail service
-      transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASS, // 16-digit App Password
-        },
-      });
-      console.log(`[email] Gmail SMTP initialized for ${env.SMTP_USER}.`);
-    }
-  } catch (error) {
-    console.warn(`[email] SMTP init error: ${error.message}`);
-  }
+if (resend) {
+  console.log(`[email] Resend initialized. Emails will be sent via Resend API.`);
 } else {
-  console.warn("[email] SMTP credentials (SMTP_USER, SMTP_PASS) not configured in .env. Emails are logged to terminal only.");
+  console.warn("[email] RESEND_API_KEY not configured. Emails are logged to terminal only.");
+}
+
+/**
+ * Internal helper — sends via Resend API or logs to terminal if not configured
+ */
+async function sendEmail({ to, subject, html, logLabel }) {
+  console.log(logLabel);
+
+  if (!resend) return true;
+
+  const { data, error } = await resend.emails.send({
+    from: env.EMAIL_FROM,
+    to,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.warn(`[email] Resend error sending "${subject}" to ${to}:`, error.message ?? error);
+  } else {
+    console.log(`[email] Resend delivered "${subject}" to ${to} (id: ${data?.id})`);
+  }
+
+  return true;
 }
 
 /**
@@ -60,29 +59,18 @@ export async function sendWelcomeEmail(toEmail, userName) {
     </div>
   `;
 
-  // Terminal dev logger
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ 📬 [EMAIL DISPATCHED: WELCOME]                         │
 │ To:      ${toEmail.padEnd(46)}│
 │ Name:    ${(userName || "Traveler").padEnd(46)}│
 │ Status:  Account created successfully                  │
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM,
-        to: toEmail,
-        subject,
-        html,
-      });
-    } catch (err) {
-      console.warn(`[email] Failed to send live welcome email to ${toEmail}:`, err.message);
-    }
-  }
-
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -111,29 +99,18 @@ export async function sendPasswordResetOtpEmail(toEmail, userName, otp) {
     </div>
   `;
 
-  // Terminal dev logger
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ 🔐 [EMAIL DISPATCHED: PASSWORD RESET OTP]              │
 │ To:      ${toEmail.padEnd(46)}│
 │ OTP:     ${otp.padEnd(46)}│
 │ Expiry:  10 Minutes                                    │
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM,
-        to: toEmail,
-        subject,
-        html,
-      });
-    } catch (err) {
-      console.warn(`[email] Failed to send live OTP email to ${toEmail}:`, err.message);
-    }
-  }
-
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -162,23 +139,12 @@ export async function sendBookingRequestEmail(data) {
     </div>
   `;
 
-  console.log(`\n┌────────────────────────────────────────────────────────┐\n│ 📬 [EMAIL DISPATCHED: BOOKING REQUEST]                │\n│ To:      ${env.ADMIN_EMAIL.padEnd(46)}│\n│ From:    ${(fullName || "Guest").padEnd(46)}│\n└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM,
-        to: env.ADMIN_EMAIL,
-        replyTo: email || undefined,
-        subject,
-        html,
-      });
-    } catch (err) {
-      console.warn(`[email] Failed to send booking request to admin:`, err.message);
-    }
-  }
-
-  return true;
+  return sendEmail({
+    to: env.ADMIN_EMAIL,
+    subject,
+    html,
+    logLabel: `\n┌────────────────────────────────────────────────────────┐\n│ 📬 [EMAIL DISPATCHED: BOOKING REQUEST]                │\n│ To:      ${env.ADMIN_EMAIL.padEnd(46)}│\n│ From:    ${(fullName || "Guest").padEnd(46)}│\n└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -214,19 +180,18 @@ export async function sendBookingCreatedEmail({ toEmail, userName, homestayName,
     </div>
   `;
 
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ 🏡 [EMAIL DISPATCHED: BOOKING CREATED]                 │
 │ To:      ${toEmail.padEnd(46)}│
 │ Homestay:${(homestayName || "—").padEnd(46)}│
 │ Dates:   ${`${fmtDate(checkIn)} → ${fmtDate(checkOut)}`.substring(0, 46).padEnd(46)}│
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try { await transporter.sendMail({ from: env.EMAIL_FROM, to: toEmail, subject, html }); }
-    catch (err) { console.warn(`[email] Failed to send bookingCreated to ${toEmail}:`, err.message); }
-  }
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -259,19 +224,18 @@ export async function sendPaymentConfirmedEmail({ toEmail, userName, homestayNam
     </div>
   `;
 
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ 💳 [EMAIL DISPATCHED: PAYMENT CONFIRMED]               │
 │ To:      ${toEmail.padEnd(46)}│
 │ Homestay:${(homestayName || "—").padEnd(46)}│
 │ Amount:  NPR ${String(totalAmount).padEnd(43)}│
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try { await transporter.sendMail({ from: env.EMAIL_FROM, to: toEmail, subject, html }); }
-    catch (err) { console.warn(`[email] Failed to send paymentConfirmed to ${toEmail}:`, err.message); }
-  }
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -304,19 +268,18 @@ export async function sendBookingConfirmedEmail({ toEmail, userName, homestayNam
     </div>
   `;
 
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ ✅ [EMAIL DISPATCHED: BOOKING CONFIRMED]               │
 │ To:      ${toEmail.padEnd(46)}│
 │ Homestay:${(homestayName || "—").padEnd(46)}│
 │ Check-in:${fmtDate(checkIn).padEnd(46)}│
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try { await transporter.sendMail({ from: env.EMAIL_FROM, to: toEmail, subject, html }); }
-    catch (err) { console.warn(`[email] Failed to send bookingConfirmed to ${toEmail}:`, err.message); }
-  }
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -347,19 +310,18 @@ export async function sendBookingCancelledEmail({ toEmail, userName, homestayNam
     </div>
   `;
 
-  console.log(`
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    logLabel: `
 ┌────────────────────────────────────────────────────────┐
 │ ❌ [EMAIL DISPATCHED: BOOKING CANCELLED]               │
 │ To:      ${toEmail.padEnd(46)}│
 │ Homestay:${(homestayName || "—").padEnd(46)}│
 │ Reason:  ${(reason || "Not specified").substring(0, 46).padEnd(46)}│
-└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try { await transporter.sendMail({ from: env.EMAIL_FROM, to: toEmail, subject, html }); }
-    catch (err) { console.warn(`[email] Failed to send bookingCancelled to ${toEmail}:`, err.message); }
-  }
-  return true;
+└────────────────────────────────────────────────────────┘`,
+  });
 }
 
 /**
@@ -380,21 +342,10 @@ export async function sendInterestedCandidateEmail({ name, email }) {
     </div>
   `;
 
-  console.log(`\n┌────────────────────────────────────────────────────────┐\n│ 📬 [EMAIL DISPATCHED: INTERESTED CANDIDATE]           │\n│ To:      ${env.ADMIN_EMAIL.padEnd(46)}│\n│ Name:    ${(name || "—").padEnd(46)}│\n│ Email:   ${(email || "—").padEnd(46)}│\n└────────────────────────────────────────────────────────┘`);
-
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM,
-        to: env.ADMIN_EMAIL,
-        replyTo: email || undefined,
-        subject,
-        html,
-      });
-    } catch (err) {
-      console.warn(`[email] Failed to send interested candidate to admin:`, err.message);
-    }
-  }
-
-  return true;
+  return sendEmail({
+    to: env.ADMIN_EMAIL,
+    subject,
+    html,
+    logLabel: `\n┌────────────────────────────────────────────────────────┐\n│ 📬 [EMAIL DISPATCHED: INTERESTED CANDIDATE]           │\n│ To:      ${env.ADMIN_EMAIL.padEnd(46)}│\n│ Name:    ${(name || "—").padEnd(46)}│\n│ Email:   ${(email || "—").padEnd(46)}│\n└────────────────────────────────────────────────────────┘`,
+  });
 }

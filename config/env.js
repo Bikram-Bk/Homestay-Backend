@@ -28,11 +28,9 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
   ADMIN_URL: process.env.ADMIN_URL || "http://localhost:3001",
 
-  SMTP_HOST: process.env.SMTP_HOST || "",
-  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
-  SMTP_USER: process.env.SMTP_USER || "",
-  SMTP_PASS: process.env.SMTP_PASS || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "HomestayNepal <no-reply@homestaynepal.com>",
+  // Resend API (replaces Nodemailer/Gmail SMTP — Render blocks SMTP ports)
+  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
+  EMAIL_FROM: process.env.EMAIL_FROM || "HomestayNepal <onboarding@resend.dev>",
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || "bikrambk2244@gmail.com",
 
   // eSewa ePay v2
