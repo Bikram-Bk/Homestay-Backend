@@ -1,39 +1,45 @@
-import * as Brevo from "@getbrevo/brevo";
 import env from "../config/env.js";
 
-let transactionalApi = null;
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 if (env.BREVO_API_KEY) {
-  const apiInstance = new Brevo.TransactionalEmailsApi();
-  apiInstance.setApiKey(
-    Brevo.TransactionalEmailsApiApiKeys.apiKey,
-    env.BREVO_API_KEY
-  );
-  transactionalApi = apiInstance;
-  console.log(`[email] Brevo Transactional API initialized.`);
+  console.log(`[email] Brevo HTTP API initialized (sender: ${env.EMAIL_FROM_ADDRESS}).`);
 } else {
   console.warn("[email] BREVO_API_KEY not configured. Emails are logged to terminal only.");
 }
 
 /**
- * Internal helper — sends via Brevo API or logs to terminal if not configured
+ * Internal helper — sends via Brevo REST API (fetch) or logs to terminal
  */
 async function sendEmail({ to, subject, html, logLabel }) {
   console.log(logLabel);
 
-  if (!transactionalApi) return true;
+  if (!env.BREVO_API_KEY) return true;
 
   try {
-    const sendSmtpEmail = new Brevo.SendSmtpEmail();
-    sendSmtpEmail.subject = subject;
-    sendSmtpEmail.htmlContent = html;
-    sendSmtpEmail.sender = { name: "HomestayNepal", email: env.EMAIL_FROM_ADDRESS };
-    sendSmtpEmail.to = [{ email: to }];
+    const res = await fetch(BREVO_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": env.BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender: { name: "HomestayNepal", email: env.EMAIL_FROM_ADDRESS },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
 
-    const result = await transactionalApi.sendTransacEmail(sendSmtpEmail);
-    console.log(`[email] Brevo delivered "${subject}" to ${to} (messageId: ${result?.body?.messageId ?? "ok"})`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.warn(`[email] Brevo error sending "${subject}" to ${to}:`, JSON.stringify(data));
+    } else {
+      console.log(`[email] Brevo delivered "${subject}" to ${to} (messageId: ${data?.messageId ?? "ok"})`);
+    }
   } catch (err) {
-    console.warn(`[email] Brevo error sending "${subject}" to ${to}:`, err?.response?.body ?? err.message);
+    console.warn(`[email] Brevo fetch error for "${subject}" to ${to}:`, err.message);
   }
 
   return true;
